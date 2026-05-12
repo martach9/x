@@ -235,7 +235,7 @@ INSERT INTO usuarios
     nombre,
     email,
     password,
-    saltHash,
+    salt,
     direccion,
     tipo,
     activo
@@ -311,7 +311,7 @@ eval {
     my $ok = Linux::usermod->add(
         $login,          # usuario
         $password,       # password
-        $nombre,         # gecos
+        '',         # gecos
         $gid_sistema,    # gid
         '',              # extra
         $home,           # home
@@ -329,10 +329,23 @@ eval {
 
     die "No se pudo obtener usuario Linux"
         unless $user;
-
-    my $uid = $user->get('uid');
-    my $gid = $user->get('gid');
-
+    
+    Linux::usermod->grpadd(
+        $login,
+        $user->get('gid')
+    );
+    
+    my $gr = Linux::usermod->new($login, 1);
+    
+    $gr->set('users', $login);
+    
+    my @pw = getpwnam($login);
+    
+    die "Usuario no encontrado en passwd"
+        unless @pw;
+    
+    my $uid = $pw[2];
+    my $gid = $pw[3];
     # =====================================================
     # CREAR HOME
     # =====================================================
