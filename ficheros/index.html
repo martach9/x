@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSalmantica - Acceso</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #13232f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        .container {
+            background: #1c2b36;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #2d3e4a;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 15px;
+            background: none;
+            border: none;
+            color: #a0b3b0;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .tabs button:hover {
+            background: rgba(26, 177, 136, 0.1);
+            color: white;
+        }
+
+        .tabs button.active {
+            color: white;
+            border-bottom: 2px solid #1ab188;
+            margin-bottom: -2px;
+        }
+
+        h2 {
+            text-align: center;
+            font-weight: 300;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            background: none;
+            border: 1px solid #a0b3b0;
+            border-radius: 4px;
+            color: white;
+            font-size: 1em;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #1ab188;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 15px;
+            background: #1ab188;
+            border: none;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button[type="submit"]:hover {
+            background: #17a07b;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        ::placeholder {
+            color: #a0b3b0;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs">
+        <button id="btn-login" class="active" onclick="mostrar('login')">Login</button>
+        <button id="btn-registro" onclick="mostrar('registro')">Registro</button>
+    </div>
+
+    <div id="login">
+        <h2>Iniciar sesión</h2>
+        <form action="/cgi-bin/login.pl" method="POST">
+            <input type="text" name="login" placeholder="Usuario" required autocomplete="username">
+            <input type="password" name="password" placeholder="Contraseña" required autocomplete="current-password">
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+
+    <div id="registro" class="hidden">
+        <h2>Registro</h2>
+        <form action="/cgi-bin/registro.pl" method="POST">
+            <input type="text" name="login" placeholder="Nombre de usuario (Login)" required autocomplete="username">
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+            <input type="email" name="email" placeholder="Correo electrónico" required>
+            <input type="text" name="direccion" placeholder="Dirección física" required>
+            <input type="password" name="password" placeholder="Contraseña" required autocomplete="new-password">
+            <button type="submit">Registrarse</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function mostrar(id) {
+        // Ocultar ambos formularios
+        document.getElementById('login').classList.add('hidden');
+        document.getElementById('registro').classList.add('hidden');
+
+        // Quitar clase activa de ambos botones
+        document.getElementById('btn-login').classList.remove('active');
+        document.getElementById('btn-registro').classList.remove('active');
+
+        // Mostrar el seleccionado y activar su pestaña
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById('btn-' + id).classList.add('active');
+    }
+</script>
+
+</body>
+</html>
