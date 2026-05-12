@@ -5,7 +5,6 @@ use warnings;
 
 use Linux::usermod;
 use File::Copy qw(copy);
-use File::Path qw(make_path);
 
 require "/usr/lib/cgi-bin/conexion.pl";
 
@@ -16,7 +15,7 @@ require "/usr/lib/cgi-bin/conexion.pl";
 my $dbh = conexion::conectar();
 
 # =========================================================
-# BUSCAR USUARIOS ACTIVOS
+# USUARIOS PENDIENTES
 # =========================================================
 
 my $sth = $dbh->prepare(q{
@@ -34,7 +33,7 @@ AND procesado = 0
 $sth->execute();
 
 # =========================================================
-# RECORRER USUARIOS
+# RECORRER
 # =========================================================
 
 while (
@@ -50,44 +49,23 @@ while (
         $u->{tipo};
 
     # =====================================================
-    # SI YA EXISTE -> marcar procesado
+    # SI YA EXISTE
     # =====================================================
 
-    if (getpwnam($login)) {
-
-        my $up = $dbh->prepare(q{
-
-        UPDATE usuarios
-        SET procesado = 1
-        WHERE login = ?
-
-        });
-
-        $up->execute($login);
-
-        next;
-    }
+    next if getpwnam($login);
 
     # =====================================================
-    # HOME
+    # CONFIG
     # =====================================================
 
     my $home = "/home/$login";
-
-    # =====================================================
-    # SHELL
-    # =====================================================
 
     my $shell =
         ($tipo eq 'operario')
         ? '/bin/bash'
         : '/usr/sbin/nologin';
 
-    # =====================================================
-    # GID
-    # =====================================================
-
-    my $gid_sistema =
+    my $gid =
         ($tipo eq 'operario')
         ? 1002
         : 1001;
@@ -95,14 +73,14 @@ while (
     eval {
 
         # =================================================
-        # CREAR USUARIO
+        # CREAR USER
         # =================================================
 
         my $ok = Linux::usermod->add(
             $login,
             $password_linux,
             '',
-            $gid_sistema,
+            $gid,
             '',
             $home,
             $shell
@@ -112,86 +90,53 @@ while (
             unless $ok;
 
         # =================================================
-        # OBTENER UID/GID
+        # UID/GID
         # =================================================
 
         my @pw = getpwnam($login);
 
-        die "Usuario no encontrado"
+        die "No existe usuario"
             unless @pw;
 
         my $uid = $pw[2];
-        my $gid = $pw[3];
-
-        # =================================================
-        # HOME
-        # =================================================
-
-        unless (-d $home) {
-
-            mkdir($home)
-                or die "No se pudo crear home";
-        }
-
-        chmod(0755, $home);
-
-        chown($uid, $gid, $home);
-
-        # =================================================
-        # SKEL
-        # =================================================
-
-        copy(
-            "/etc/skel/.bashrc",
-            "$home/.bashrc"
-        );
-
-        copy(
-            "/etc/skel/.profile",
-            "$home/.profile"
-        );
-
-        copy(
-            "/etc/skel/.bash_logout",
-            "$home/.bash_logout"
-        );
-
-        chown(
-            $uid,
-            $gid,
-            "$home/.bashrc",
-            "$home/.profile",
-            "$home/.bash_logout"
-        );
+        my $gid_real = $pw[3];
 
         # =================================================
         # public_html
         # =================================================
 
-        my $public =
-            "$home/public_html";
+        mkdir("$home/public_html");
 
-        mkdir($public);
+        chmod(
+            0755,
+            "$home/public_html"
+        );
 
-        chmod(0755, $public);
-
-        chown($uid, $gid, $public);
+        chown(
+            $uid,
+            $gid_real,
+            "$home/public_html"
+        );
 
         # =================================================
         # blog
         # =================================================
 
-        my $blog =
-            "$home/blog";
+        mkdir("$home/blog");
 
-        mkdir($blog);
+        chmod(
+            0755,
+            "$home/blog"
+        );
 
-        chmod(0755, $blog);
-
-        chown($uid, $gid, $blog);
+        chown(
+            $uid,
+            $gid_real,
+            "$home/blog"
+        );
 
         # =================================================
-        # MARCAR PROCESADO
+        # PROCESADO
         # =================================================
 
         my $up = $dbh->prepare(q{
@@ -212,7 +157,7 @@ while (
 }
 
 # =========================================================
-# CERRAR
+# FIN
 # =========================================================
 
 $dbh->disconnect();
