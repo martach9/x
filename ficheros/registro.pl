@@ -31,7 +31,7 @@ print $cgi->header(
 
 my $login     = $cgi->param('login')     || '';
 my $nombre    = $cgi->param('nombre')    || '';
-my $correo    = $cgi->param('correo')    || '';
+my $email     = $cgi->param('email')     || '';
 my $direccion = $cgi->param('direccion') || '';
 my $password  = $cgi->param('password')  || '';
 
@@ -41,7 +41,7 @@ my $password  = $cgi->param('password')  || '';
 
 $login     =~ s/^\s+|\s+$//g;
 $nombre    =~ s/^\s+|\s+$//g;
-$correo    =~ s/^\s+|\s+$//g;
+$email    =~ s/^\s+|\s+$//g;
 $direccion =~ s/^\s+|\s+$//g;
 
 # =========================================================
@@ -68,7 +68,7 @@ unless (
 
 # Email válido
 unless (
-    $correo =~ /^[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+    $email =~ /^[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 ) {
     push @errores,
         "Correo inválido.";
@@ -157,7 +157,7 @@ my $tipo_usuario = 'ciudadano';
 my $shell_linux = '/usr/sbin/nologin';
 
 if (
-    $correo =~ /\@ecosalmantica\.es$/i
+    $email =~ /\@ecosalmantica\.es$/i
 ) {
 
     $tipo_usuario = 'operario';
@@ -203,12 +203,12 @@ my $check = $dbh->prepare(
     "SELECT login
      FROM usuarios
      WHERE login = ?
-        OR correo = ?"
+        OR email = ?"
 );
 
 $check->execute(
     $login,
-    $correo
+    $email
 );
 
 if ($check->fetchrow_array()) {
@@ -233,7 +233,7 @@ INSERT INTO usuarios
 (
     login,
     nombre,
-    correo,
+    email,
     password,
     saltHash,
     direccion,
@@ -254,7 +254,7 @@ eval {
     $sth->execute(
         $login,
         $nombre,
-        $correo,
+        $email,
         $hash_web,
         $salt_web,
         $direccion,
