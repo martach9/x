@@ -1,60 +1,75 @@
 #!/usr/bin/perl
-
 use strict;
 use warnings;
 use CGI qw(:standard);
 use JSON::PP;
+use Filesys::Df;
+use Sys::MemInfo qw(totalmem freemem);
 
 print header(
-    -type => 'application/json',
-    -charset => 'UTF-8',
+    -type                        => 'application/json',
+    -charset                     => 'UTF-8',
     -access_control_allow_origin => '*'
 );
 
 # =========================
-# CPU
+# CPU (leyendo /proc/stat)
 # =========================
+sub get_cpu_usage {
+    my %read_stat = read_proc_stat();
+    sleep(1);
+    my %read_stat2 = read_proc_stat();
 
-my $cpu = `top -bn1 | grep "Cpu(s)"`;
-my ($cpu_idle) = $cpu =~ /(\d+\.\d+)\s*id/;
+    my $idle1  = $read_stat{idle}  + $read_stat{iowait};
+    my $idle2  = $read_stat2{idle} + $read_stat2{iowait};
+    my $total1 = $read_stat{total};
+    my $total2 = $read_stat2{total};
 
-$cpu_idle ||= 0;
+    my $diff_total = $total2 - $total1;
+    my $diff_idle  = $idle2  - $idle1;
 
-my $cpu_usage = int(100 - $cpu_idle);
+    return $diff_total > 0 ? int(100 * (1 - $diff_idle / $diff_total)) : 0;
+}
+
+sub read_proc_stat {
+    open(my $fh, '<', '/proc/stat') or die "No puedo leer /proc/stat: $!";
+    my $line = <$fh>;
+    close($fh);
+
+    my (undef, $user, $nice, $system, $idle, $iowait, $irq, $softirq) = split(/\s+/, $line);
+    my $total = $user + $nice + $system + $idle + $iowait + $irq + $softirq;
+
+    return (
+        idle   => $idle,
+        iowait => $iowait,
+        total  => $total
+    );
+}
 
 # =========================
-# RAM
+# RAM con Sys::MemInfo
 # =========================
-
-my $ram = `free | grep Mem`;
-
-my @ram_values = split(/\s+/, $ram);
-
-my $total_ram = $ram_values[1];
-my $used_ram  = $ram_values[2];
-
-my $ram_percent = int(($used_ram / $total_ram) * 100);
+sub get_ram_usage {
+    my $total = totalmem();
+    my $free  = freemem();
+    return $total > 0 ? int(($total - $free) / $total * 100) : 0;
+}
 
 # =========================
-# DISCO
+# DISCO con Filesys::Df
 # =========================
-
-my $disk = `df -h / | tail -1`;
-
-my @disk_values = split(/\s+/, $disk);
-
-my $disk_percent = $disk_values[4];
-
-$disk_percent =~ s/%//;
+sub get_disk_usage {
+    my $df = df("/") or die "No puedo leer el disco: $!";
+    return int($df->{per});
+}
 
 # =========================
 # JSON
 # =========================
-
 my %data = (
-    cpu_percent  => $cpu_usage,
-    ram_percent  => $ram_percent,
-    disk_percent => $disk_percent
+    cpu_percent  => get_cpu_usage(),
+    ram_percent  => get_ram_usage(),
+    disk_percent => get_disk_usage()
 );
 
 print encode_json(\%data);
