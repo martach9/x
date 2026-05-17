@@ -5,6 +5,7 @@ use warnings;
 
 use CGI qw(:standard escapeHTML);
 use CGI::Carp qw(fatalsToBrowser);
+use CGI::Session;
 
 require "/var/www/cgi-bin/conexion.pl";
 
@@ -14,33 +15,52 @@ require "/var/www/cgi-bin/conexion.pl";
 
 my $cgi = CGI->new;
 
-print $cgi->header(
-    -type    => 'text/html',
-    -charset => 'UTF-8'
+# =========================================================
+# SESION
+# =========================================================
+
+CGI::Session->name("ECOSESSION");
+
+my $session = CGI::Session->new(
+    undef,
+    $cgi,
+    { Directory => '/var/lib/ecosalmantica/sessions' }
 );
+
+unless ($session->param('autenticado')) {
+
+    print $cgi->redirect('/');
+    exit;
+}
+
+my $login =
+    $session->param('usuario') || '';
+
+unless ($login =~ /^[a-z_][a-z0-9_-]{2,31}$/) {
+
+    print $cgi->redirect('/');
+    exit;
+}
 
 # =========================================================
 # PARAMETROS
 # =========================================================
 
-my $login =
-    $cgi->param('login') || '';
-
 my $nueva_direccion =
     $cgi->param('nueva_direccion') || '';
-
-$login =~ s/^\s+|\s+$//g;
 
 $nueva_direccion =~ s/^\s+|\s+$//g;
 
 # =========================================================
-# FORMULARIO
+# MOSTRAR FORMULARIO
 # =========================================================
 
 unless ($nueva_direccion) {
 
-    my $login_safe =
-        escapeHTML($login);
+    print $cgi->header(
+        -type    => 'text/html',
+        -charset => 'UTF-8'
+    );
 
     print qq{
 
@@ -109,11 +129,6 @@ action="/cgi-bin/cambiarDireccion.pl"
 method="POST">
 
 <input
-type="hidden"
-name="login"
-value="$login_safe">
-
-<input
 type="text"
 name="nueva_direccion"
 placeholder="Nueva dirección"
@@ -161,6 +176,8 @@ $check->execute($login);
 my ($direccion_actual) =
     $check->fetchrow_array();
 
+$check->finish();
+
 # =========================================================
 # MISMA DIRECCION
 # =========================================================
@@ -171,16 +188,95 @@ if (
     $direccion_actual eq $nueva_direccion
 ) {
 
+    print $cgi->header(
+        -type    => 'text/html',
+        -charset => 'UTF-8'
+    );
+
     print qq{
 
-    <h2>Error</h2>
+<!DOCTYPE html>
 
-    <p>
-    La nueva dirección no puede ser igual
-    a la actual.
-    </p>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Error</title>
+
+<style>
+
+body{
+    background:#13232f;
+    color:white;
+    font-family:Arial,sans-serif;
+    padding:40px;
+}
+
+.card{
+    background:#24333e;
+    padding:30px;
+    border-radius:10px;
+    max-width:600px;
+    margin:auto;
+}
+
+.error{
+    color:#ff6b6b;
+}
+
+button{
+    background:#1ab188;
+    border:none;
+    color:white;
+    padding:12px 20px;
+    border-radius:5px;
+    cursor:pointer;
+    width:100%;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<h2 class="error">
+
+Error
+
+</h2>
+
+<p>
+
+La nueva dirección no puede ser igual a la actual.
+
+</p>
+
+<form
+action="/cgi-bin/datosPersonales.pl"
+method="GET">
+
+<button type="submit">
+
+Volver
+
+</button>
+
+</form>
+
+</div>
+
+</body>
+
+</html>
 
     };
+
+    $dbh->disconnect();
 
     exit;
 }
@@ -202,116 +298,16 @@ $sth->execute(
     $login
 );
 
-# =========================================================
-# ESCAPAR
-# =========================================================
-
-my $direccion_safe =
-    escapeHTML($nueva_direccion);
-
-my $login_safe =
-    escapeHTML($login);
-
-# =========================================================
-# RESPUESTA
-# =========================================================
-
-print qq{
-
-<!DOCTYPE html>
-
-<html lang="es">
-
-<head>
-
-<meta charset="UTF-8">
-
-<title>Dirección actualizada</title>
-
-<style>
-
-body{
-    background:#13232f;
-    color:white;
-    font-family:Arial,sans-serif;
-    padding:40px;
-}
-
-.card{
-    background:#24333e;
-    padding:30px;
-    border-radius:10px;
-    max-width:600px;
-    margin:auto;
-}
-
-.ok{
-    color:#1ab188;
-}
-
-button{
-    background:#1ab188;
-    border:none;
-    color:white;
-    padding:12px 20px;
-    border-radius:5px;
-    cursor:pointer;
-    width:100%;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="card">
-
-<h2 class="ok">
-
-Dirección actualizada correctamente
-
-</h2>
-
-<p>
-
-Nueva dirección:
-
-<b>$direccion_safe</b>
-
-</p>
-
-<br>
-
-<form
-action="/cgi-bin/datosPersonales.pl"
-method="GET">
-
-<input
-type="hidden"
-name="login"
-value="$login_safe">
-
-<button type="submit">
-
-Volver a datos personales
-
-</button>
-
-</form>
-
-</div>
-
-</body>
-
-</html>
-
-};
-
-# =========================================================
-# FIN
-# =========================================================
-
 $sth->finish();
 
 $dbh->disconnect();
+
+# =========================================================
+# REDIRECT
+# =========================================================
+
+print $cgi->redirect(
+    '/cgi-bin/datosPersonales.pl?ok=direccion'
+);
+
+exit;
