@@ -5,6 +5,7 @@ use warnings;
 
 use CGI qw(:standard escapeHTML);
 use CGI::Carp qw(fatalsToBrowser);
+use CGI::Session;
 
 require "/var/www/cgi-bin/conexion.pl";
 
@@ -14,22 +15,39 @@ require "/var/www/cgi-bin/conexion.pl";
 
 my $cgi = CGI->new;
 
-print $cgi->header(
-    -type    => 'text/html',
-    -charset => 'UTF-8'
+# =========================================================
+# SESION
+# =========================================================
+
+CGI::Session->name("ECOSESSION");
+
+my $session = CGI::Session->new(
+    undef,
+    $cgi,
+    { Directory => '/var/lib/ecosalmantica/sessions' }
 );
+
+unless ($session->param('autenticado')) {
+
+    print $cgi->redirect('/');
+    exit;
+}
+
+my $login =
+    $session->param('usuario') || '';
+
+unless ($login =~ /^[a-z_][a-z0-9_-]{2,31}$/) {
+
+    print $cgi->redirect('/');
+    exit;
+}
 
 # =========================================================
 # PARAMETROS
 # =========================================================
 
-my $login =
-    $cgi->param('login') || '';
-
 my $nuevo_nombre =
     $cgi->param('nuevo_nombre') || '';
-
-$login =~ s/^\s+|\s+$//g;
 
 $nuevo_nombre =~ s/^\s+|\s+$//g;
 
@@ -39,8 +57,10 @@ $nuevo_nombre =~ s/^\s+|\s+$//g;
 
 unless ($nuevo_nombre) {
 
-    my $login_safe =
-        escapeHTML($login);
+    print $cgi->header(
+        -type    => 'text/html',
+        -charset => 'UTF-8'
+    );
 
     print qq{
 
@@ -109,11 +129,6 @@ action="/cgi-bin/cambiarNombre.pl"
 method="POST">
 
 <input
-type="hidden"
-name="login"
-value="$login_safe">
-
-<input
 type="text"
 name="nuevo_nombre"
 placeholder="Nuevo nombre"
@@ -161,6 +176,8 @@ $check->execute($login);
 my ($nombre_actual) =
     $check->fetchrow_array();
 
+$check->finish();
+
 # =========================================================
 # MISMO NOMBRE
 # =========================================================
@@ -171,22 +188,58 @@ if (
     $nombre_actual eq $nuevo_nombre
 ) {
 
+    print $cgi->header(
+        -type    => 'text/html',
+        -charset => 'UTF-8'
+    );
+
     print qq{
 
-    <h2>Error</h2>
+<!DOCTYPE html>
 
-    <p>
-    El nuevo nombre no puede ser igual
-    al actual.
-    </p>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Error</title>
+
+</head>
+
+<body>
+
+<h2>
+
+Error
+
+</h2>
+
+<p>
+
+El nuevo nombre no puede ser igual al actual.
+
+</p>
+
+<a href="/cgi-bin/datosPersonales.pl">
+
+Volver
+
+</a>
+
+</body>
+
+</html>
 
     };
+
+    $dbh->disconnect();
 
     exit;
 }
 
 # =========================================================
-# ACTUALIZAR NOMBRE
+# ACTUALIZAR
 # =========================================================
 
 my $sth = $dbh->prepare(q{
@@ -202,116 +255,16 @@ $sth->execute(
     $login
 );
 
-# =========================================================
-# ESCAPAR
-# =========================================================
-
-my $nombre_safe =
-    escapeHTML($nuevo_nombre);
-
-my $login_safe =
-    escapeHTML($login);
-
-# =========================================================
-# RESPUESTA
-# =========================================================
-
-print qq{
-
-<!DOCTYPE html>
-
-<html lang="es">
-
-<head>
-
-<meta charset="UTF-8">
-
-<title>Nombre actualizado</title>
-
-<style>
-
-body{
-    background:#13232f;
-    color:white;
-    font-family:Arial,sans-serif;
-    padding:40px;
-}
-
-.card{
-    background:#24333e;
-    padding:30px;
-    border-radius:10px;
-    max-width:600px;
-    margin:auto;
-}
-
-.ok{
-    color:#1ab188;
-}
-
-button{
-    background:#1ab188;
-    border:none;
-    color:white;
-    padding:12px 20px;
-    border-radius:5px;
-    cursor:pointer;
-    width:100%;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="card">
-
-<h2 class="ok">
-
-Nombre actualizado correctamente
-
-</h2>
-
-<p>
-
-Nuevo nombre:
-
-<b>$nombre_safe</b>
-
-</p>
-
-<br>
-
-<form
-action="/cgi-bin/datosPersonales.pl"
-method="GET">
-
-<input
-type="hidden"
-name="login"
-value="$login_safe">
-
-<button type="submit">
-
-Volver a datos personales
-
-</button>
-
-</form>
-
-</div>
-
-</body>
-
-</html>
-
-};
-
-# =========================================================
-# FIN
-# =========================================================
-
 $sth->finish();
 
 $dbh->disconnect();
+
+# =========================================================
+# REDIRECT
+# =========================================================
+
+print $cgi->redirect(
+    '/cgi-bin/datosPersonales.pl?ok=nombre'
+);
+
+exit;
