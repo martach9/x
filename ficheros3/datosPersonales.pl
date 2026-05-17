@@ -5,6 +5,7 @@ use warnings;
 
 use CGI qw(:standard escapeHTML);
 use CGI::Carp qw(fatalsToBrowser);
+use CGI::Session;
 
 require "/var/www/cgi-bin/conexion.pl";
 
@@ -14,24 +15,27 @@ require "/var/www/cgi-bin/conexion.pl";
 
 my $cgi = CGI->new;
 
-print $cgi->header(
-    -type    => 'text/html',
-    -charset => 'UTF-8'
+# =========================================================
+# SESION
+# =========================================================
+
+CGI::Session->name("ECOSESSION");
+
+my $session = CGI::Session->new(
+    undef,
+    $cgi,
+    { Directory => '/var/lib/ecosalmantica/sessions' }
 );
 
-# =========================================================
-# PARAMETROS
-# =========================================================
+unless ($session->param('autenticado')) {
+    print $cgi->redirect('/');
+    exit;
+}
 
-my $login = $cgi->param('login') || '';
-$login =~ s/^\s+|\s+$//g;
+my $login = $session->param('usuario') || '';
 
-# =========================================================
-# VALIDACION
-# =========================================================
-
-unless ($login) {
-    print "<h2>Error</h2><p>Usuario inválido.</p>";
+unless ($login =~ /^[a-z_][a-z0-9_-]{2,31}$/) {
+    print "<h2>Error</h2><p>Sesión inválida.</p>";
     exit;
 }
 
@@ -118,6 +122,12 @@ $html =~ s/\{\{INICIALES\}\}/$iniciales_safe/g;
 # =========================================================
 # IMPRIMIR HTML
 # =========================================================
+print $cgi->header(
+    -type    => 'text/html',
+    -charset => 'UTF-8'
+);
+
+
 
 print $html;
 
